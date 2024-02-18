@@ -1,0 +1,36 @@
+name: Build
+
+on: [ push, pull_request ]
+
+jobs:
+  release-and-push:
+    name: Release And Push
+    runs-on: ubuntu-latest
+    if: github.repository == 'casvisor/guacd' && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get version
+        id: get-version
+        run: echo "::set-output name=version::$(cat VERSION)"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        if: github.repository == 'casvisor/guacd' && github.event_name == 'push' && steps.should_push.outputs.push=='true'
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Push to Docker Hub
+        uses: docker/build-push-action@v3
+        if: github.repository == 'casvisor/guacd' && github.event_name == 'push' && steps.should_push.outputs.push=='true'
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: casbin/guacd:${{ steps.get-version.outputs.version }},casbin/guacd:latest
